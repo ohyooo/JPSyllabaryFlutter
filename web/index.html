@@ -64,28 +64,22 @@
     // Older Flutter builds installed an offline-first service worker. Remove
     // those registrations before loading the current build so localhost and
     // static hosting never mix assets from different releases.
-    (() => {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations()
-          .then((registrations) => {
-            for (const registration of registrations) {
-              registration.unregister();
-            }
-          })
-          .catch((error) => {
-            console.warn('Unable to remove an old service worker:', error);
-          });
-      }
-
-      const bootstrap = document.createElement('script');
-      bootstrap.src = 'flutter_bootstrap.js';
-      bootstrap.async = true;
-      bootstrap.onerror = () => {
-        document.getElementById('app-loading').textContent =
-          'Unable to load JpSyllabary. Please refresh the page.';
-      };
-      document.body.appendChild(bootstrap);
-    })();
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations()
+        .then((registrations) => {
+          for (const registration of registrations) {
+            registration.unregister();
+          }
+        })
+        .catch((error) => {
+          console.warn('Unable to remove an old service worker:', error);
+        });
+    }
   </script>
+  <script
+    src="flutter_bootstrap.js"
+    defer
+    onerror="document.getElementById('app-loading').textContent = 'Unable to load JpSyllabary. Please refresh the page.'"
+  ></script>
 </body>
 </html>
