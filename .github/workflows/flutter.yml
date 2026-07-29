@@ -85,15 +85,6 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Set up Android SDK
-        if: matrix.platform == 'android'
-        uses: android-actions/setup-android@v4.0.1
-
-      - name: Install required Android SDK packages
-        if: matrix.platform == 'android'
-        shell: bash
-        run: sdkmanager "platforms;android-37" "build-tools;37.0.0" "ndk;29.0.14206865"
-
       - name: Install Linux build dependencies
         if: matrix.platform == 'linux'
         shell: bash
