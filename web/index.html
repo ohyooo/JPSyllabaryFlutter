@@ -31,8 +31,27 @@
 
   <title>JpSyllabary</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+    }
+
+    #app-loading {
+      align-items: center;
+      background: #f9f9f0;
+      color: #666;
+      display: flex;
+      font: 16px sans-serif;
+      inset: 0;
+      justify-content: center;
+      position: fixed;
+    }
+  </style>
 </head>
 <body>
+  <div id="app-loading">Loading JpSyllabary…</div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
@@ -41,6 +60,21 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Older Flutter builds installed an offline-first service worker. Remove
+    // those registrations before loading the current build so localhost and
+    // static hosting never mix assets from different releases.
+    (async () => {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+      }
+
+      const bootstrap = document.createElement('script');
+      bootstrap.src = 'flutter_bootstrap.js';
+      bootstrap.async = true;
+      document.body.appendChild(bootstrap);
+    })();
+  </script>
 </body>
 </html>

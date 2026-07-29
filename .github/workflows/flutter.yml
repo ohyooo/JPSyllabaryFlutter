@@ -113,6 +113,8 @@ jobs:
             flutter build appbundle "--$mode"
           } elseif ($platform -eq "ios") {
             flutter build ios "--$mode" --no-codesign
+          } elseif ($platform -eq "web") {
+            flutter build web "--$mode" --pwa-strategy=none
           } else {
             flutter build $platform "--$mode"
           }
