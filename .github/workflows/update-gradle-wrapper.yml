@@ -1,0 +1,70 @@
+name: Update Gradle Wrapper
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 16 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-gradle-wrapper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Java
+        uses: actions/setup-java@v5.6.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6.2.0
+
+      - name: Update wrapper to the latest Gradle release
+        shell: pwsh
+        run: |
+          $latest = (Invoke-RestMethod "https://services.gradle.org/versions/current").version
+          Write-Host "Updating Gradle Wrapper to $latest"
+          Push-Location android
+          ./gradlew wrapper "--gradle-version=$latest" --distribution-type=all
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./gradlew wrapper "--gradle-version=$latest" --distribution-type=all
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Pop-Location
+
+      - name: Validate updated wrapper
+        working-directory: android
+        run: ./gradlew --version
+
+      - name: Create update pull request
+        id: create-pull-request
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          token: ${{ secrets.ACTIONS_TRIGGER_PAT || secrets.GITHUB_TOKEN }}
+          commit-message: "chore(deps): update Gradle Wrapper"
+          title: "chore(deps): update Gradle Wrapper"
+          body: |
+            Automated update of the Gradle Wrapper to the latest stable release.
+          branch: automation/update-gradle-wrapper
+          delete-branch: true
+          labels: dependencies
+          add-paths: |
+            android/gradle/wrapper/gradle-wrapper.jar
+            android/gradle/wrapper/gradle-wrapper.properties
+            android/gradlew
+            android/gradlew.bat
+
+      - name: Enable squash auto-merge
+        if: steps.create-pull-request.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.ACTIONS_TRIGGER_PAT || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pull-request.outputs.pull-request-number }}
+        run: gh pr merge "$PR_NUMBER" --auto --squash

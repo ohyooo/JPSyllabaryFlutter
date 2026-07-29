@@ -1,0 +1,183 @@
+name: Flutter CI
+
+on:
+  push:
+  pull_request:
+  repository_dispatch:
+  workflow_dispatch:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
+
+jobs:
+  check:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+  build:
+    name: Build ${{ matrix.platform }} (${{ matrix.mode }})
+    needs: check
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - android
+          - web
+          - linux
+          - windows
+          - macos
+          - ios
+        mode:
+          - debug
+          - release
+        include:
+          - platform: android
+            os: ubuntu-latest
+          - platform: web
+            os: ubuntu-latest
+          - platform: linux
+            os: ubuntu-latest
+          - platform: windows
+            os: windows-latest
+          - platform: macos
+            os: macos-latest
+          - platform: ios
+            os: macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Java
+        if: matrix.platform == 'android'
+        uses: actions/setup-java@v5.6.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up Android SDK
+        if: matrix.platform == 'android'
+        uses: android-actions/setup-android@v4.0.1
+
+      - name: Install required Android SDK packages
+        if: matrix.platform == 'android'
+        shell: bash
+        run: sdkmanager "platforms;android-37" "build-tools;37.0.0" "ndk;29.0.14206865"
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build
+        shell: pwsh
+        run: |
+          $mode = "${{ matrix.mode }}"
+          $platform = "${{ matrix.platform }}"
+
+          if ($platform -eq "android") {
+            flutter build apk "--$mode"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            flutter build appbundle "--$mode"
+          } elseif ($platform -eq "ios") {
+            flutter build ios "--$mode" --no-codesign
+          } else {
+            flutter build $platform "--$mode"
+          }
+
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package build
+        shell: pwsh
+        run: |
+          $mode = "${{ matrix.mode }}"
+          $platform = "${{ matrix.platform }}"
+          $name = "jpsyllabary-$platform-$mode"
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+
+          switch ($platform) {
+            "android" {
+              Copy-Item "build/app/outputs/flutter-apk/app-$mode.apk" "dist/$name.apk"
+              Copy-Item "build/app/outputs/bundle/$mode/app-$mode.aab" "dist/$name.aab"
+            }
+            "web" {
+              Compress-Archive -Path "build/web/*" -DestinationPath "dist/$name.zip"
+            }
+            "windows" {
+              $configuration = (Get-Culture).TextInfo.ToTitleCase($mode)
+              Compress-Archive -Path "build/windows/x64/runner/$configuration/*" -DestinationPath "dist/$name.zip"
+            }
+            "linux" {
+              $bundle = (Resolve-Path "build/linux/x64/$mode/bundle").Path
+              $archive = Join-Path (Resolve-Path "dist").Path "$name.tar.gz"
+              tar -C $bundle -czf $archive .
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+            "macos" {
+              $configuration = (Get-Culture).TextInfo.ToTitleCase($mode)
+              $app = Get-ChildItem "build/macos/Build/Products/$configuration" -Filter "*.app" | Select-Object -First 1
+              if (-not $app) { throw "macOS app bundle was not found." }
+              ditto -c -k --sequesterRsrc --keepParent $app.FullName "dist/$name.zip"
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+            "ios" {
+              $app = Get-ChildItem "build/ios/iphoneos" -Filter "*.app" | Select-Object -First 1
+              if (-not $app) { throw "iOS app bundle was not found." }
+              $payload = "dist/ios-staging/Payload"
+              New-Item -ItemType Directory -Path $payload -Force | Out-Null
+              Copy-Item $app.FullName $payload -Recurse
+              ditto -c -k --sequesterRsrc --keepParent $payload "dist/$name-unsigned.ipa"
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+              Remove-Item "dist/ios-staging" -Recurse -Force
+            }
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: jpsyllabary-${{ matrix.platform }}-${{ matrix.mode }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
