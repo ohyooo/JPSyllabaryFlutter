@@ -527,11 +527,12 @@ class SourceScreen extends StatelessWidget {
       const Divider(height: 1),
       ListTile(
         leading: const Icon(Icons.code),
-        title: const Text('ohyooo/JPSyllabary'),
+        title: const Text('ohyooo/JPSyllabaryFlutter'),
         subtitle: Text(strings.openRepository),
         trailing: const Icon(Icons.open_in_new),
-        onTap: () =>
-            launchUrl(Uri.parse('https://github.com/ohyooo/JPSyllabary')),
+        onTap: () => launchUrl(
+          Uri.parse('https://github.com/ohyooo/JPSyllabaryFlutter'),
+        ),
       ),
     ],
   );
