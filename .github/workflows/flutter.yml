@@ -164,11 +164,29 @@ jobs:
             }
           }
 
-      - name: Upload artifact
+      - name: Upload packaged artifact
+        if: matrix.platform != 'android'
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: jpsyllabary-${{ matrix.platform }}-${{ matrix.mode }}
           path: dist/*
           if-no-files-found: error
-          compression-level: 0
           retention-days: 14
+          archive: false
+
+      - name: Upload Android APK
+        if: matrix.platform == 'android'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          path: dist/jpsyllabary-android-${{ matrix.mode }}.apk
+          if-no-files-found: error
+          retention-days: 14
+          archive: false
+
+      - name: Upload Android App Bundle
+        if: matrix.platform == 'android'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          path: dist/jpsyllabary-android-${{ matrix.mode }}.aab
+          if-no-files-found: error
+          retention-days: 14
+          archive: false
