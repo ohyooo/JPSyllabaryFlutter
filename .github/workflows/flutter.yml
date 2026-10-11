@@ -168,7 +168,7 @@ jobs:
 
       - name: Upload packaged artifact
         if: matrix.platform != 'android'
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           path: dist/*
           if-no-files-found: error
@@ -177,7 +177,7 @@ jobs:
 
       - name: Upload Android APK
         if: matrix.platform == 'android'
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           path: dist/jpsyllabary-android-${{ matrix.mode }}.apk
           if-no-files-found: error
@@ -186,7 +186,7 @@ jobs:
 
       - name: Upload Android App Bundle
         if: matrix.platform == 'android'
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           path: dist/jpsyllabary-android-${{ matrix.mode }}.aab
           if-no-files-found: error
